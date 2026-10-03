@@ -1,4 +1,4 @@
-var CACHE = 'gk-clip-studio-v1';
+var CACHE = 'gk-clip-studio-v2';
 var ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', function (e) {
