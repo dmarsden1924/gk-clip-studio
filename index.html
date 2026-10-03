@@ -1,4 +1,4 @@
-Forward one frame (→)" aria-label="Forward one frame"><!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -595,7 +595,7 @@ $('#b-undo').addEventListener('click',undo);$('#b-redo').addEventListener('click
 /* ---------- transport ---------- */
 function renderTransport(){
   var pl=playing();
-  $('#transport').innerHTML='<div class="tp"><button class="btn sm" type="button" data-a="prev" title="Back one frame (←)" aria-label="Back one frame">'+ico('prev')+'</button><button class="btn sm primary" type="button" data-a="play" title="Play / pause (Space)" aria-label="Play or pause">'+ico(pl?'pause':'play')+'</button><button class="btn sm" type="button" data-a="next" title="Forward one frame (→)">'+ico('next')+'</button></div>'+
+  $('#transport').innerHTML='<div class="tp"><button class="btn sm" type="button" data-a="prev" title="Back one frame (←)" aria-label="Back one frame">'+ico('prev')+'</button><button class="btn sm primary" type="button" data-a="play" title="Play / pause (Space)" aria-label="Play or pause">'+ico(pl?'pause':'play')+'</button><button class="btn sm" type="button" data-a="next" title="Forward one frame (→)" aria-label="Forward one frame">'+ico('next')+'</button></div>'+
    '<div class="time" id="time"></div>'+
    '<select class="field" id="speed" aria-label="Playback speed"><option value="0.25"'+(S.speed===.25?' selected':'')+'>0.25×</option><option value="0.5"'+(S.speed===.5?' selected':'')+'>0.5×</option><option value="1"'+(S.speed===1?' selected':'')+'>1×</option></select>'+
    '<div class="spacer"></div><div class="tp"><button class="btn sm" type="button" data-a="in" title="Set clip start at playhead (I)">Set in <kbd>I</kbd></button><button class="btn sm" type="button" data-a="out" title="Set clip end at playhead (O)">Set out <kbd>O</kbd></button><button class="btn sm" type="button" data-a="freeze" title="Hold this frame for a few seconds (F)">'+ico('pause')+'Freeze <kbd>F</kbd></button>'+(P.inT!=null||P.outT!=null?'<button class="btn sm" type="button" data-a="clear-trim">Clear trim</button>':'')+'</div>';
