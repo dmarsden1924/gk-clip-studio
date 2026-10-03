@@ -40,6 +40,16 @@ button{cursor:pointer}
 .btn[disabled]{opacity:.4;cursor:not-allowed}
 input[type=file]{display:none}
 
+.cliptabs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-top:10px}
+.ctab{display:inline-flex;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.ctab.active{background:var(--chalk);border-color:var(--chalk)}
+.ctab-main{padding:6px 10px;font-size:13px;font-weight:500;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;background:transparent;border:0;color:inherit}
+.ctab.active .ctab-main{color:var(--chalk-ink)}
+.ctab-del{padding:5px 9px;background:transparent;border:0;border-left:1px solid var(--line);opacity:.65;color:inherit;font-size:14px;line-height:1}
+.ctab.active .ctab-del{border-left-color:rgba(16,32,26,.3)}
+.ctab-del:hover{opacity:1;color:var(--bad)}
+.ctab-add{padding:6px 12px;border:1px dashed var(--line);border-radius:6px;background:transparent;color:var(--muted);font-size:13px;font-weight:500}
+.ctab-add:hover{color:var(--text);border-color:#456253}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 0}
 .tools{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .tool{position:relative;display:inline-flex;align-items:center;gap:7px;padding:7px 11px;background:var(--panel2);border:0;border-right:1px solid var(--line);font-weight:500;font-size:13px}
@@ -83,6 +93,8 @@ input[type=checkbox]{accent-color:var(--chalk);width:15px;height:15px}
 .tick{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);font:400 10px var(--mono);color:var(--muted);padding:6px 0 0 4px;pointer-events:none;white-space:nowrap}
 .io{position:absolute;top:0;bottom:0;background:rgba(0,0,0,.45);pointer-events:none;z-index:2}
 .flag{position:absolute;top:0;width:2px;height:24px;background:var(--chalk);z-index:3;pointer-events:none}
+.freeze-band{position:absolute;top:0;bottom:0;background:rgba(79,199,141,.3);pointer-events:none;z-index:1}
+.flag.freeze-flag{background:var(--good)}
 .rows{display:grid;grid-auto-rows:26px;row-gap:3px}
 .row{position:relative;background:var(--line2);border-radius:3px}
 .bar{position:absolute;top:2px;bottom:2px;min-width:8px;border-radius:3px;background:color-mix(in srgb,var(--c) 32%,#12201b);border:1px solid var(--c);cursor:grab;overflow:hidden;display:flex;align-items:center;padding-left:8px;font-size:11px;white-space:nowrap;color:var(--text)}
@@ -156,6 +168,7 @@ kbd{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 
     </div>
   </header>
 
+  <div class="cliptabs" id="cliptabs" hidden></div>
   <div class="toolbar" id="toolbar"></div>
 
   <main class="desk">
@@ -200,7 +213,7 @@ var IC={
  play:'<path d="M7 4.5v15l12-7.5z" style="fill:currentColor;stroke:none"/>',pause:'<path d="M7 4h4v16H7zM13 4h4v16h-4z" style="fill:currentColor;stroke:none"/>',
  prev:'<path d="M15 5 8 12l7 7"/>',next:'<path d="M9 5l7 7-7 7"/>',undo:'<path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/>',redo:'<path d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/>',
  upload:'<path d="M12 16V4m0 0L7 9m5-5 5 5M4 20h16"/>',camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',film:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16M3 9h5M3 15h5M16 9h5M16 15h5"/>',
- dup:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'
+ dup:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',plus:'<path d="M12 5v14M5 12h14"/>'
 };
 function ico(n){return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">'+IC[n]+'</svg>'}
 var TOOLS=[['select','Select','V'],['arrow','Arrow','A'],['line','Line','L'],['pen','Pen','P'],['ring','Ring','R'],['spot','Spotlight','S'],['beam','Beam','B'],['angle','Angle','G'],['text','Caption','T']];
@@ -210,8 +223,10 @@ var COLORS=['#ffffff','#ffd83a','#ff4b3e','#3fdc85','#4db2ff','#ff7ad9'];
 /* ---------- state ---------- */
 var vid=$('#vid'),cv=$('#cv'),ctx=cv.getContext('2d'),screenEl=$('#screen');
 var hasVideo=false,blobUrl=null,dirty=true,lastT=-1,prevTick=0,rafT=0;
-var S={tool:'select',color:'#ffd83a',w:4,keep:false,sel:null,vTime:0,vPlaying:false,vRate:1,fps:30,draft:null,drag:null,exporting:false,cancel:false,speed:1};
-var P={name:'Demo scene',key:'',anns:[],inT:null,outT:null,hold:3,demo:true};
+var S={tool:'select',color:'#ffd83a',w:4,keep:false,sel:null,selFreeze:null,vTime:0,vPlaying:false,vRate:1,fps:30,draft:null,drag:null,exporting:false,cancel:false,speed:1,freezeActive:null,freezeTimer:0};
+var V={name:'Demo scene',key:'',demo:true};
+var Clips=[],activeClipId=null;
+var P={name:'Demo',anns:[],inT:null,outT:null,hold:3,freezes:[],freezeDur:2};
 var undoS=[],redoS=[],lastSnapKey='',lastSnapAt=0,saveTimer=null;
 
 function dur(){return hasVideo&&isFinite(vid.duration)?vid.duration:8}
@@ -225,19 +240,71 @@ function play(){
   renderTransport();
 }
 function sel(){return P.anns.filter(function(a){return a.id===S.sel})[0]||null}
+function clearFreezeHold(){clearTimeout(S.freezeTimer);S.freezeActive=null}
+function addFreeze(t){
+  snap();if(!P.freezes)P.freezes=[];
+  var fz={id:uid(),t:clamp(t,0,dur()),dur:P.freezeDur||2};
+  P.freezes.push(fz);changed(true);toast('Freeze added at '+fmt(fz.t));
+}
+
+/* ---------- clips (one video, several highlight ranges) ---------- */
+function makeClip(name){return {id:uid(),name:name,anns:[],inT:null,outT:null,hold:(P&&P.hold)||3,freezes:[],freezeDur:(P&&P.freezeDur)||2}}
+function slug(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')}
+function setActiveClip(id){
+  var c=Clips.filter(function(x){return x.id===id})[0];if(!c)return;
+  clearFreezeHold();activeClipId=id;P=c;undoS=[];redoS=[];S.sel=null;S.selFreeze=null;
+  pause();setTime(P.inT||0);renderAll();dirty=true;persist();
+}
+function addClip(){
+  if(!hasVideo)return;
+  var n=Clips.length+1;while(Clips.some(function(c){return c.name==='Clip '+n}))n++;
+  var c=makeClip('Clip '+n);Clips.push(c);setActiveClip(c.id);toast('Added '+c.name);
+}
+function deleteClip(id){
+  if(Clips.length<=1)return;
+  var c=Clips.filter(function(x){return x.id===id})[0];if(!c)return;
+  if(!confirm('Delete "'+c.name+'"'+(c.anns.length?' and its '+c.anns.length+' annotation(s)':'')+'? This cannot be undone.'))return;
+  Clips=Clips.filter(function(x){return x.id!==id});
+  if(activeClipId===id)setActiveClip(Clips[0].id);else{persist();renderClipTabs()}
+  toast('Deleted '+c.name);
+}
+function renameClip(id){
+  var c=Clips.filter(function(x){return x.id===id})[0];if(!c)return;
+  var nm=prompt('Clip name',c.name);if(nm==null)return;nm=nm.trim();if(!nm)return;
+  c.name=nm;if(id===activeClipId)renderHeader();renderClipTabs();persist();
+}
+function renderClipTabs(){
+  var wrap=$('#cliptabs');if(!wrap)return;
+  if(!hasVideo||V.demo){wrap.hidden=true;wrap.innerHTML='';return}
+  wrap.hidden=false;
+  wrap.innerHTML=Clips.map(function(c){
+    var active=c.id===activeClipId,rangeTxt=(c.inT!=null||c.outT!=null)?fmt(c.inT||0)+'–'+fmt(c.outT!=null?c.outT:dur()):'full clip';
+    return '<div class="ctab'+(active?' active':'')+'">'+
+      '<button type="button" class="ctab-main" data-act-clip="select" data-clip="'+c.id+'" title="'+esc(rangeTxt+' · double-click to rename')+'">'+esc(c.name)+'</button>'+
+      (Clips.length>1?'<button type="button" class="ctab-del" data-act-clip="del" data-clip="'+c.id+'" aria-label="Delete '+esc(c.name)+'" title="Delete clip">×</button>':'')+
+    '</div>';
+  }).join('')+'<button type="button" class="ctab-add" id="ctab-add">'+ico('plus')+'New clip</button>';
+}
+$('#cliptabs').addEventListener('click',function(e){
+  if(e.target.closest('#ctab-add')){addClip();return}
+  var del=e.target.closest('[data-act-clip="del"]');if(del){deleteClip(del.dataset.clip);return}
+  var selb=e.target.closest('[data-act-clip="select"]');if(selb&&selb.dataset.clip!==activeClipId){setActiveClip(selb.dataset.clip);return}
+});
+$('#cliptabs').addEventListener('dblclick',function(e){var m=e.target.closest('[data-act-clip="select"]');if(m)renameClip(m.dataset.clip)});
 
 /* ---------- history + persistence ---------- */
 function snap(key){
   var t=Date.now();if(key&&key===lastSnapKey&&t-lastSnapAt<1500){lastSnapAt=t;return}
-  lastSnapKey=key||'';lastSnapAt=t;undoS.push(JSON.stringify({a:P.anns,i:P.inT,o:P.outT}));if(undoS.length>80)undoS.shift();redoS=[];renderHeader();
+  lastSnapKey=key||'';lastSnapAt=t;undoS.push(JSON.stringify({a:P.anns,i:P.inT,o:P.outT,f:P.freezes}));if(undoS.length>80)undoS.shift();redoS=[];renderHeader();
 }
-function restoreSnap(js){var o=JSON.parse(js);P.anns=o.a;P.inT=o.i;P.outT=o.o;if(!sel())S.sel=null}
-function undo(){if(!undoS.length)return;redoS.push(JSON.stringify({a:P.anns,i:P.inT,o:P.outT}));restoreSnap(undoS.pop());lastSnapKey='';changed(true)}
-function redo(){if(!redoS.length)return;undoS.push(JSON.stringify({a:P.anns,i:P.inT,o:P.outT}));restoreSnap(redoS.pop());lastSnapKey='';changed(true)}
+function restoreSnap(js){var o=JSON.parse(js);P.anns=o.a;P.inT=o.i;P.outT=o.o;P.freezes=o.f||[];if(!sel())S.sel=null}
+function undo(){if(!undoS.length)return;redoS.push(JSON.stringify({a:P.anns,i:P.inT,o:P.outT,f:P.freezes}));restoreSnap(undoS.pop());lastSnapKey='';changed(true)}
+function redo(){if(!redoS.length)return;undoS.push(JSON.stringify({a:P.anns,i:P.inT,o:P.outT,f:P.freezes}));restoreSnap(redoS.pop());lastSnapKey='';changed(true)}
+function serializeClip(c){return {id:c.id,name:c.name,anns:c.anns,inT:c.inT,outT:c.outT,hold:c.hold,freezes:c.freezes,freezeDur:c.freezeDur}}
 function persist(){
-  clearTimeout(saveTimer);saveTimer=setTimeout(function(){if(!P.key)return;try{localStorage.setItem(P.key,JSON.stringify({anns:P.anns,inT:P.inT,outT:P.outT,hold:P.hold}))}catch(e){}},250);
+  clearTimeout(saveTimer);saveTimer=setTimeout(function(){if(!V.key)return;try{localStorage.setItem(V.key,JSON.stringify({clips:Clips.map(serializeClip),activeClipId:activeClipId}))}catch(e){}},250);
 }
-function changed(structural){dirty=true;persist();renderTimeline();renderHeader();if(structural){renderInspector();renderTransport()}}
+function changed(structural){dirty=true;persist();renderTimeline();renderHeader();renderClipTabs();if(structural){renderInspector();renderTransport()}}
 
 /* ---------- annotations ---------- */
 function newAnn(type,pts){
@@ -275,6 +342,25 @@ function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
 /* ---------- drawing ---------- */
 function P2(a,i,w,h,o){return {x:(a.pts[i].x+o.x)*w,y:(a.pts[i].y+o.y)*h}}
 function angleDeg(A,B,C){var v1={x:A.x-B.x,y:A.y-B.y},v2={x:C.x-B.x,y:C.y-B.y},d=Math.hypot(v1.x,v1.y)*Math.hypot(v2.x,v2.y);return d?Math.acos(clamp((v1.x*v2.x+v1.y*v2.y)/d,-1,1))*180/Math.PI:0}
+
+/* ---------- overall shape size (independent of line/border thickness) ---------- */
+function cvDims(){var r=cv.getBoundingClientRect();return {w:r.width||900,h:r.height||506}}
+function shapeAnchorIdx(a){return a.type==='angle'?1:0}
+function shapeExtentPx(a){
+  var d=cvDims(),aIdx=shapeAnchorIdx(a),anchor=a.pts[aIdx],sum=0,n=0;
+  a.pts.forEach(function(p,i){if(i===aIdx)return;sum+=Math.hypot((p.x-anchor.x)*d.w,(p.y-anchor.y)*d.h);n++});
+  return n?sum/n:0;
+}
+function setShapeExtentPx(a,px){
+  px=Math.max(4,px);
+  var d=cvDims(),aIdx=shapeAnchorIdx(a),anchor=a.pts[aIdx],cur=shapeExtentPx(a);
+  if(cur<1e-3){
+    a.pts.forEach(function(p,i){if(i===aIdx)return;p.x=anchor.x+px/d.w;p.y=anchor.y});
+    return;
+  }
+  var k=px/cur;
+  a.pts.forEach(function(p,i){if(i===aIdx)return;p.x=anchor.x+(p.x-anchor.x)*k;p.y=anchor.y+(p.y-anchor.y)*k});
+}
 function drawOne(c,a,w,h,s,alpha,prog,o,ghost){
   c.save();c.globalAlpha=alpha*(ghost?.3:1);
   var lw=a.w*s;c.lineCap='round';c.lineJoin='round';c.strokeStyle=a.color;c.fillStyle=a.color;c.lineWidth=lw;
@@ -358,7 +444,7 @@ function drawDemoScene(c,w,h,t){
 function render(){
   var d=window.devicePixelRatio||1,w=cv.width/d,h=cv.height/d,t=now();
   ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,w,h);ctx.shadowBlur=0;
-  if(P.demo)drawDemoScene(ctx,w,h,t);
+  if(V.demo)drawDemoScene(ctx,w,h,t);
   drawAnns(ctx,w,h,t,true);
   var a=sel();
   if(a&&visible(a,t)&&!S.exporting){
@@ -429,7 +515,7 @@ cv.addEventListener('pointermove',function(e){
     dirty=true;
   }
 });
-function endDrag(){var d=S.drag;if(!d)return;S.drag=null;if(d.kind==='create')finishCreate(d.a);else{changed(d.kind==='move'&&d.a.follow)}}
+function endDrag(){var d=S.drag;if(!d)return;S.drag=null;if(d.kind==='create')finishCreate(d.a);else{changed(d.kind==='handle'||(d.kind==='move'&&d.a.follow))}}
 cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
 cv.addEventListener('dblclick',function(e){var a=sel();if(a&&a.type==='text'){var ta=$('#f-text');if(ta){ta.focus();ta.select()}}});
 
@@ -444,9 +530,25 @@ function openFile(f){
   blobUrl=URL.createObjectURL(f);vid.src=blobUrl;
   vid.onloadedmetadata=function(){
     hasVideo=true;S.vPlaying=false;screenEl.style.setProperty('--ar',(vid.videoWidth/vid.videoHeight)||1.7778);
-    var key='gkclip.v1:'+f.name+':'+f.size,st=null;try{st=JSON.parse(localStorage.getItem(key))}catch(e){}
-    P={name:f.name,key:key,anns:st&&st.anns||[],inT:st?st.inT:null,outT:st?st.outT:null,hold:st&&st.hold!=null?st.hold:P.hold,demo:false};
-    undoS=[];redoS=[];S.sel=null;S.fps=30;detectFps();sizeCanvas();renderAll();toast(st&&st.anns&&st.anns.length?'Loaded '+f.name+' with '+st.anns.length+' saved annotations':'Loaded '+f.name);setTime(0);
+    clearFreezeHold();
+    var key='gkclip.v2:'+f.name+':'+f.size,st=null;try{st=JSON.parse(localStorage.getItem(key))}catch(e){}
+    var oldKey='gkclip.v1:'+f.name+':'+f.size,oldSt=null;if(!st){try{oldSt=JSON.parse(localStorage.getItem(oldKey))}catch(e){}}
+    var msg;
+    if(st&&st.clips&&st.clips.length){
+      Clips=st.clips.map(function(c){return {id:c.id||uid(),name:c.name||'Clip 1',anns:c.anns||[],inT:c.inT!=null?c.inT:null,outT:c.outT!=null?c.outT:null,hold:c.hold!=null?c.hold:3,freezes:c.freezes||[],freezeDur:c.freezeDur!=null?c.freezeDur:2}});
+      activeClipId=st.activeClipId&&Clips.some(function(c){return c.id===st.activeClipId})?st.activeClipId:Clips[0].id;
+      var totalAnns=Clips.reduce(function(n,c){return n+c.anns.length},0);
+      msg='Loaded '+f.name+' with '+Clips.length+' clip'+(Clips.length>1?'s':'')+(totalAnns?' ('+totalAnns+' annotation'+(totalAnns>1?'s':'')+')':'');
+    }else if(oldSt){
+      var c0=makeClip('Clip 1');c0.anns=oldSt.anns||[];c0.inT=oldSt.inT!=null?oldSt.inT:null;c0.outT=oldSt.outT!=null?oldSt.outT:null;c0.hold=oldSt.hold!=null?oldSt.hold:3;
+      Clips=[c0];activeClipId=c0.id;
+      msg='Loaded '+f.name+(c0.anns.length?' with '+c0.anns.length+' saved annotations':'');
+    }else{
+      Clips=[makeClip('Clip 1')];activeClipId=Clips[0].id;msg='Loaded '+f.name;
+    }
+    V={name:f.name,key:key,demo:false};
+    P=Clips.filter(function(c){return c.id===activeClipId})[0];
+    undoS=[];redoS=[];S.sel=null;S.selFreeze=null;S.fps=30;detectFps();sizeCanvas();renderAll();toast(msg);setTime(P.inT||0);
   };
   vid.onerror=function(){toast('This video will not play in the browser. Try an .mp4 (H.264) or .webm file.')};
 }
@@ -460,12 +562,12 @@ vid.addEventListener('ended',renderTransport);
 
 /* ---------- header, toolbar ---------- */
 function renderHeader(){
-  $('#vname').textContent=P.demo?'Demo scene (no video loaded)':P.name;
+  $('#vname').textContent=V.demo?'Demo scene (no video loaded)':(V.name+(Clips.length>1?' — '+P.name:''));
   $('#load-btn').innerHTML=ico('upload')+(hasVideo?'Change video':'Load video');
   $('#b-undo').innerHTML=ico('undo')+'Undo';$('#b-undo').disabled=!undoS.length;
   $('#b-redo').innerHTML=ico('redo')+'Redo';$('#b-redo').disabled=!redoS.length;
   $('#b-snap').innerHTML=ico('camera')+'Snapshot';$('#b-export').innerHTML=ico('film')+'Export video';
-  $('#demo-tag').hidden=!P.demo;
+  $('#demo-tag').hidden=!V.demo;
 }
 function renderToolbar(){
   var h='<div class="tools" role="group" aria-label="Tools">'+TOOLS.map(function(t){return '<button type="button" class="tool" data-tool="'+t[0]+'" aria-pressed="'+(S.tool===t[0])+'" title="'+t[1]+' ('+t[2]+')">'+ico(t[0])+t[1]+'<kbd>'+t[2]+'</kbd></button>'}).join('')+'</div>';
@@ -493,10 +595,10 @@ $('#b-undo').addEventListener('click',undo);$('#b-redo').addEventListener('click
 /* ---------- transport ---------- */
 function renderTransport(){
   var pl=playing();
-  $('#transport').innerHTML='<div class="tp"><button class="btn sm" type="button" data-a="prev" title="Back one frame (←)" aria-label="Back one frame">'+ico('prev')+'</button><button class="btn sm primary" type="button" data-a="play" title="Play / pause (Space)" aria-label="Play or pause">'+ico(pl?'pause':'play')+'</button><button class="btn sm" type="button" data-a="next" title="Forward one frame (→)" aria-label="Forward one frame">'+ico('next')+'</button></div>'+
+  $('#transport').innerHTML='<div class="tp"><button class="btn sm" type="button" data-a="prev" title="Back one frame (←)" aria-label="Back one frame">'+ico('prev')+'</button><button class="btn sm primary" type="button" data-a="play" title="Play / pause (Space)" aria-label="Play or pause">'+ico(pl?'pause':'play')+'</button><button class="btn sm" type="button" data-a="next" title="Forward one frame (→)">'+ico('next')+'</button></div>'+
    '<div class="time" id="time"></div>'+
    '<select class="field" id="speed" aria-label="Playback speed"><option value="0.25"'+(S.speed===.25?' selected':'')+'>0.25×</option><option value="0.5"'+(S.speed===.5?' selected':'')+'>0.5×</option><option value="1"'+(S.speed===1?' selected':'')+'>1×</option></select>'+
-   '<div class="spacer"></div><div class="tp"><button class="btn sm" type="button" data-a="in" title="Set clip start at playhead (I)">Set in <kbd>I</kbd></button><button class="btn sm" type="button" data-a="out" title="Set clip end at playhead (O)">Set out <kbd>O</kbd></button>'+(P.inT!=null||P.outT!=null?'<button class="btn sm" type="button" data-a="clear-trim">Clear trim</button>':'')+'</div>';
+   '<div class="spacer"></div><div class="tp"><button class="btn sm" type="button" data-a="in" title="Set clip start at playhead (I)">Set in <kbd>I</kbd></button><button class="btn sm" type="button" data-a="out" title="Set clip end at playhead (O)">Set out <kbd>O</kbd></button><button class="btn sm" type="button" data-a="freeze" title="Hold this frame for a few seconds (F)">'+ico('pause')+'Freeze <kbd>F</kbd></button>'+(P.inT!=null||P.outT!=null?'<button class="btn sm" type="button" data-a="clear-trim">Clear trim</button>':'')+'</div>';
   renderTime();
 }
 function renderTime(){var el=$('#time');if(el)el.innerHTML=fmt(now())+' <small>/ '+fmt(dur())+'</small>'}
@@ -505,11 +607,12 @@ $('#transport').addEventListener('click',function(e){
   if(a==='play')togglePlay();else if(a==='prev')step(-1);else if(a==='next')step(1);
   else if(a==='in'){snap();P.inT=Math.min(now(),P.outT!=null?P.outT-.1:dur());changed(true)}
   else if(a==='out'){snap();P.outT=Math.max(now(),P.inT!=null?P.inT+.1:0);changed(true)}
+  else if(a==='freeze'){addFreeze(now())}
   else if(a==='clear-trim'){snap();P.inT=null;P.outT=null;changed(true)}
 });
 $('#transport').addEventListener('change',function(e){if(e.target.id==='speed'){S.speed=+e.target.value;if(hasVideo)vid.playbackRate=S.speed}});
-function togglePlay(){if(playing())pause();else play()}
-function step(n){pause();setTime(now()+n/S.fps)}
+function togglePlay(){clearFreezeHold();if(playing())pause();else play()}
+function step(n){clearFreezeHold();pause();setTime(now()+n/S.fps)}
 
 /* ---------- timeline ---------- */
 function labelOf(a){return a.type==='text'?(a.text||'Caption').slice(0,26):TYPE_NAME[a.type]+(a.fill==='dim'?' spotlight':'')}
@@ -518,6 +621,10 @@ function renderTimeline(){
   for(var t=0;t<=D+1e-6;t+=step)tk+='<div class="tick" style="left:'+(t/D*100)+'%">'+(D<60?t.toFixed(t%1?1:0)+'s':Math.floor(t/60)+':'+pad2(Math.round(t%60)))+'</div>';
   if(P.inT!=null)tk+='<div class="io" style="left:0;width:'+(P.inT/D*100)+'%"></div><div class="flag" style="left:'+(P.inT/D*100)+'%" title="Clip start"></div>';
   if(P.outT!=null)tk+='<div class="io" style="left:'+(P.outT/D*100)+'%;right:0"></div><div class="flag" style="left:'+(P.outT/D*100)+'%" title="Clip end"></div>';
+  (P.freezes||[]).forEach(function(fz){
+    var l=fz.t/D*100,wd=Math.max(.3,fz.dur/D*100);
+    tk+='<div class="freeze-band" style="left:'+l+'%;width:'+wd+'%"></div><div class="flag freeze-flag" style="left:'+l+'%" title="Freeze '+fz.dur+'s at '+fmt(fz.t)+'"></div>';
+  });
   $('#ruler').innerHTML=tk;
   $('#tl-lbls').innerHTML='<div class="lb"></div>'+P.anns.map(function(a){return '<div data-sel="'+a.id+'" class="'+(a.id===S.sel?'sel':'')+'" title="'+esc(labelOf(a))+'">'+labelOf(a)+'</div>'}).map(function(x){return x}).join('');
   $('#rows').innerHTML=P.anns.map(function(a){
@@ -545,7 +652,7 @@ trks.addEventListener('pointerdown',function(e){
     var t=now();if(t<a.start||t>a.end)setTime(a.start);
     return;
   }
-  trks.setPointerCapture(e.pointerId);tdrag={kind:'scrub'};if(playing())pause();setTime(tPos(e));
+  trks.setPointerCapture(e.pointerId);tdrag={kind:'scrub'};clearFreezeHold();if(playing())pause();setTime(tPos(e));
 });
 trks.addEventListener('pointermove',function(e){
   if(!tdrag)return;
@@ -568,11 +675,21 @@ function layersHtml(){
   if(!P.anns.length)return '';
   return '<div><h3>Layers</h3><div class="layers">'+P.anns.map(function(a){return '<button type="button" class="layer'+(a.id===S.sel?' sel':'')+'" data-sel="'+a.id+'" style="--c:'+a.color+'"><span class="sw"></span><span class="n">'+esc(labelOf(a))+'</span><span class="t">'+fmt(a.start)+'–'+fmt(a.end)+'</span></button>'}).join('')+'</div></div>';
 }
+function freezesHtml(){
+  if(!P.freezes||!P.freezes.length)return '';
+  return '<div><h3>Freezes</h3><p class="hint">Holds the frame for a few seconds, then carries on playing — useful for pausing on a moment to explain it.</p><div class="layers">'+
+   P.freezes.slice().sort(function(a,b){return a.t-b.t}).map(function(fz){
+    return '<div class="layer" style="--c:var(--good)"><span class="sw"></span>'+
+     '<button type="button" class="n" data-fgo="'+fz.id+'" title="Go to this freeze" style="background:none;border:0;padding:0;text-align:left;color:inherit;cursor:pointer;font:inherit">At '+fmt(fz.t)+'</button>'+
+     '<input type="number" class="field" data-fdur="'+fz.id+'" min="0.2" step="0.5" value="'+fz.dur+'" style="width:60px" aria-label="Hold duration, seconds" title="Hold duration (s)">'+
+     '<button type="button" class="btn sm warn" data-fdel="'+fz.id+'" aria-label="Delete freeze at '+fmt(fz.t)+'" title="Delete freeze">'+ico('trash')+'</button></div>';
+  }).join('')+'</div></div>';
+}
 function renderInspector(){
   var a=sel(),pane=$('#pane'),h='';
   if(!a){
     h='<div class="tipbox"><b>How it works.</b> Pick a tool, then drag on the video. Try a <b>Beam</b> for a line of action, <b>Arrows</b> for movement, a <b>Caption</b> for your coaching point. Slide the bars underneath to control when each one appears.</div>'+
-      '<div class="tipbox"><b>Keys.</b> <kbd>Space</kbd> play · <kbd>←</kbd><kbd>→</kbd> frame · <kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> 1 s · <kbd>V A L P R S B G T</kbd> tools · <kbd>I</kbd><kbd>O</kbd> trim · <kbd>Del</kbd> delete · <kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd> undo</div>'+layersHtml();
+      '<div class="tipbox"><b>Keys.</b> <kbd>Space</kbd> play · <kbd>←</kbd><kbd>→</kbd> frame · <kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> 1 s · <kbd>V A L P R S B G T</kbd> tools · <kbd>I</kbd><kbd>O</kbd> trim · <kbd>F</kbd> freeze · <kbd>Del</kbd> delete · <kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd> undo</div>'+layersHtml()+freezesHtml();
     pane.innerHTML=h;return;
   }
   var txt=a.type==='text',line=(a.type==='arrow'||a.type==='line');
@@ -580,6 +697,10 @@ function renderInspector(){
   if(txt)h+='<div class="fr"><label for="f-text">Text</label><textarea class="field" id="f-text" data-f="text">'+esc(a.text)+'</textarea></div>';
   h+='<div class="fr"><span class="l">Colour</span><div class="chips">'+COLORS.map(function(c){return '<button type="button" class="swatch" data-color="'+c+'" style="--c:'+c+'" aria-label="Colour '+c+'" aria-pressed="'+(a.color===c)+'"></button>'}).join('')+'</div></div>';
   h+=txt?'<div class="fr"><label for="f-fs">Text size</label><input type="range" id="f-fs" data-f="fs" data-k="num" min="10" max="44" value="'+a.fs+'"></div>':'<div class="fr"><label for="f-w">Thickness</label><input type="range" id="f-w" data-f="w" data-k="num" min="1" max="14" value="'+a.w+'"></div>';
+  if(!txt&&a.type!=='pen'){
+    var curPct=Math.max(2,Math.min(95,Math.round(shapeExtentPx(a)/cvDims().w*100)));
+    h+='<div class="fr"><label for="f-size">Size</label><input type="range" id="f-size" data-f="size" data-k="size" min="2" max="90" value="'+curPct+'"></div>';
+  }
   if(a.type==='ring')h+='<div class="fr"><label for="f-fill">Style</label><select class="field" id="f-fill" data-f="fill"><option value="none"'+(a.fill==='none'?' selected':'')+'>Outline</option><option value="glow"'+(a.fill==='glow'?' selected':'')+'>Glow</option><option value="dim"'+(a.fill==='dim'?' selected':'')+'>Spotlight (dim the rest)</option></select></div>';
   h+='<div class="chk-list">';
   if(line)h+='<label class="chk"><input type="checkbox" data-f="dash" data-k="bool"'+(a.dash?' checked':'')+'> Dashed</label>';
@@ -592,13 +713,15 @@ function renderInspector(){
    '<label class="chk"><input type="checkbox" data-f="pause" data-k="bool"'+(a.pause?' checked':'')+'> Pause playback when it appears</label>'+
    '<label class="chk"><input type="checkbox" data-f="follow" data-k="bool"'+(a.follow?' checked':'')+'> Follow the player</label></div>'+
    (a.follow?'<p class="hint" style="margin-top:6px">Move the playhead, then drag the shape to where the player is. It glides between your positions ('+a.kfs.length+' set). <button class="btn sm" type="button" data-act="clear-kf">Reset motion</button></p>':'')+'</div>';
-  h+='<div class="chips"><button class="btn sm" type="button" data-act="dup">'+ico('dup')+'Duplicate</button><button class="btn sm warn" type="button" data-act="del">'+ico('trash')+'Delete</button></div></div>'+layersHtml();
+  h+='<div class="chips"><button class="btn sm" type="button" data-act="dup">'+ico('dup')+'Duplicate</button><button class="btn sm warn" type="button" data-act="del">'+ico('trash')+'Delete</button></div></div>'+layersHtml()+freezesHtml();
   var f=document.activeElement,keepFocus=f&&f.id&&pane.contains(f)?f.id:null,st=f&&f.selectionStart;
   pane.innerHTML=h;
   if(keepFocus){var nf=document.getElementById(keepFocus);if(nf){nf.focus();try{nf.setSelectionRange(st,st)}catch(e){}}}
 }
 var paneEl=$('#pane');
 paneEl.addEventListener('click',function(e){
+  var fgo=e.target.closest('[data-fgo]');if(fgo){var fz=(P.freezes||[]).filter(function(x){return x.id===fgo.dataset.fgo})[0];if(fz){clearFreezeHold();pause();setTime(fz.t)}return}
+  var fdel=e.target.closest('[data-fdel]');if(fdel){snap();P.freezes=(P.freezes||[]).filter(function(x){return x.id!==fdel.dataset.fdel});changed(true);return}
   var l=e.target.closest('[data-sel]');if(l){selectAnn(l.dataset.sel);return}
   var sw=e.target.closest('[data-color]');var a=sel();
   if(sw&&a){snap('c'+a.id);a.color=sw.dataset.color;changed(true);return}
@@ -613,9 +736,16 @@ paneEl.addEventListener('click',function(e){
   else if(act==='clear-kf'){snap();a.kfs=[];changed(true)}
 });
 function onField(e){
-  var t=e.target,f=t.dataset&&t.dataset.f,a=sel();if(!f||!a)return;
+  var t=e.target;
+  if(t.dataset&&t.dataset.fdur){
+    if(e.type!=='change')return;
+    var fz=(P.freezes||[]).filter(function(x){return x.id===t.dataset.fdur})[0];if(!fz)return;
+    snap('fd'+fz.id);fz.dur=Math.max(0.2,+t.value||0.2);changed(true);return;
+  }
+  var f=t.dataset&&t.dataset.f,a=sel();if(!f||!a)return;
   var k=t.dataset.k,D=dur();
   if(k==='time'){if(e.type!=='change')return;var v=clamp(+t.value||0,0,D);snap();if(f==='start')a.start=Math.min(v,a.end-.1);else a.end=Math.max(v,a.start+.1);changed(true);return}
+  if(k==='size'){snap('sz'+a.id);setShapeExtentPx(a,(+t.value/100)*cvDims().w);changed(e.type==='change');return}
   snap(f+a.id);
   a[f]=k==='num'?+t.value:k==='bool'?t.checked:t.value;
   if(f==='follow'&&!a.follow)a.kfs=a.kfs;
@@ -633,11 +763,12 @@ document.addEventListener('keydown',function(e){
   if(mod&&(k==='d'||k==='D')){e.preventDefault();var a=sel();if(a){var b=$('[data-act="dup"]');if(b)b.click()}return}
   if(mod||e.altKey)return;
   if(k===' '){e.preventDefault();togglePlay();return}
-  if(k==='ArrowLeft'||k==='ArrowRight'){e.preventDefault();var dir=k==='ArrowRight'?1:-1;if(e.shiftKey){pause();setTime(now()+dir)}else step(dir);return}
+  if(k==='ArrowLeft'||k==='ArrowRight'){e.preventDefault();var dir=k==='ArrowRight'?1:-1;if(e.shiftKey){clearFreezeHold();pause();setTime(now()+dir)}else step(dir);return}
   if(k==='Delete'||k==='Backspace'){e.preventDefault();deleteSel();return}
   if(k==='Escape'){if(S.draft){P.anns=P.anns.filter(function(x){return x!==S.draft.a});S.draft=null;S.sel=null;changed(true)}S.tool='select';renderToolbar();return}
   if(k==='i'||k==='I'){snap();P.inT=Math.min(now(),P.outT!=null?P.outT-.1:dur());changed(true);return}
   if(k==='o'||k==='O'){snap();P.outT=Math.max(now(),P.inT!=null?P.inT+.1:0);changed(true);return}
+  if(k==='f'||k==='F'){addFreeze(now());return}
   var tool=TOOLS.filter(function(t){return t[2].toLowerCase()===k.toLowerCase()})[0];
   if(tool){S.tool=tool[0];renderToolbar()}
 });
@@ -652,7 +783,17 @@ function tick(ts){
   var t=now();
   if(playing()){
     if(P.outT!=null&&t>=P.outT&&!S.exporting){pause();setTime(P.outT)}
-    else if(!S.exporting){P.anns.forEach(function(a){if(a.pause&&lastT>=0&&lastT<a.start-1e-6&&t>=a.start-1e-6&&t-lastT<.5){pause();setTime(a.start)}})}
+    else if(!S.exporting){
+      P.anns.forEach(function(a){if(a.pause&&lastT>=0&&lastT<a.start-1e-6&&t>=a.start-1e-6&&t-lastT<.5){pause();setTime(a.start)}});
+      if(!S.freezeActive&&P.freezes&&P.freezes.length){
+        var hitF=P.freezes.filter(function(fz){return lastT>=0&&lastT<fz.t-1e-6&&t>=fz.t-1e-6&&t-lastT<.5})[0];
+        if(hitF){
+          pause();setTime(hitF.t);S.freezeActive=hitF.id;
+          clearTimeout(S.freezeTimer);
+          S.freezeTimer=setTimeout(function(){S.freezeActive=null;if(!S.exporting)play()},Math.max(100,hitF.dur*1000));
+        }
+      }
+    }
   }
   if(t!==lastT){var D=dur();$('#playhead').style.left=(t/D*100)+'%';renderTime();lastT=t;dirty=true}
   if(dirty)render();
@@ -679,7 +820,7 @@ function closeModal(){if(S.exporting)return;modal.hidden=true;$('#dlg-b').innerH
 $('#dlg-x').addEventListener('click',closeModal);modal.addEventListener('click',function(e){if(e.target===modal)closeModal()});
 function frameCanvas(w,h,t){
   var c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');
-  if(P.demo)drawDemoScene(x,w,h,t);else x.drawImage(vid,0,0,w,h);
+  if(V.demo)drawDemoScene(x,w,h,t);else x.drawImage(vid,0,0,w,h);
   drawAnns(x,w,h,t,false);return c;
 }
 function outSize(maxW){
@@ -687,7 +828,7 @@ function outSize(maxW){
   return {w:Math.max(2,Math.round(vw*sc/2)*2),h:Math.max(2,Math.round(vh*sc/2)*2)};
 }
 $('#b-snap').addEventListener('click',function(){
-  pause();var z=outSize(1920),c=frameCanvas(z.w,z.h,now()),url=c.toDataURL('image/png'),fname=(P.name||'frame').replace(/\.[^.]+$/,'')+'-frame.png';
+  pause();var z=outSize(1920),c=frameCanvas(z.w,z.h,now()),url=c.toDataURL('image/png'),fname=(V.name||'frame').replace(/\.[^.]+$/,'')+(Clips.length>1?'-'+slug(P.name):'')+'-frame.png';
   openModal('Snapshot','<img src="'+url+'" alt="Annotated frame"><div class="actions"><button class="btn primary" id="snap-dl" type="button">Save image</button><button class="btn" id="snap-cp" type="button">Copy image</button></div><p class="stat">Copy image puts it on your clipboard so you can paste it straight into a report or email.</p>');
   $('#snap-dl').addEventListener('click',function(){c.toBlob(function(b){if(b)saveFile(b,fname)},'image/png')});
   $('#snap-cp').addEventListener('click',function(){
@@ -695,11 +836,11 @@ $('#b-snap').addEventListener('click',function(){
   });
 });
 $('#b-export').addEventListener('click',openExport);
-function dataJSON(){return JSON.stringify({anns:P.anns,inT:P.inT,outT:P.outT,hold:P.hold})}
+function dataJSON(){return JSON.stringify({anns:P.anns,inT:P.inT,outT:P.outT,hold:P.hold,freezes:P.freezes})}
 function openExport(){
-  pause();var t0=P.inT||0,t1=P.outT!=null?P.outT:dur();
-  openModal('Export',
-   '<div><h3>Annotated video</h3><p class="stat" id="x-range">'+(hasVideo?'Renders '+fmt(t0)+' to '+fmt(t1)+' ('+(t1-t0).toFixed(1)+' s) with your annotations burned in. It plays in real time, so keep this tab open and visible.':'Load a video first. The demo scene has nothing to export.')+'</p>'+
+  pause();var t0=P.inT||0,t1=P.outT!=null?P.outT:dur(),freezeN=(P.freezes||[]).filter(function(fz){return fz.t>t0&&fz.t<t1}).length;
+  openModal(Clips.length>1?'Export — '+P.name:'Export',
+   '<div><h3>Annotated video</h3><p class="stat" id="x-range">'+(hasVideo?'Renders '+fmt(t0)+' to '+fmt(t1)+' ('+(t1-t0).toFixed(1)+' s)'+(freezeN?' plus '+freezeN+' freeze hold'+(freezeN>1?'s':''):'')+' with your annotations burned in. It plays in real time, so keep this tab open and visible.':'Load a video first. The demo scene has nothing to export.')+'</p>'+
    '<div class="actions" style="margin:10px 0"><select class="field" id="x-size" aria-label="Output size"><option value="1920">Up to 1920 wide</option><option value="1280" selected>Up to 1280 wide</option><option value="854">Up to 854 wide</option></select><button class="btn primary" id="x-go" type="button"'+(hasVideo?'':' disabled')+'>Start rendering</button><button class="btn" id="x-cancel" type="button" hidden>Cancel</button></div>'+
    '<div class="prog" id="x-pw" hidden><i id="x-prog"></i></div><p class="stat" id="x-stat"></p><div id="x-res"></div></div>'+
    '<div><h3>Annotation data</h3><p class="stat">Copy this to keep or move your annotations. Paste it back below to restore.</p><textarea id="x-json" readonly>'+esc(dataJSON())+'</textarea><div class="actions" style="margin:8px 0"><button class="btn sm" id="x-copy" type="button">Copy data</button></div><textarea id="x-in" placeholder="Paste data here to restore"></textarea><div class="actions" style="margin-top:8px"><button class="btn sm" id="x-restore" type="button">Restore</button><span class="stat" id="x-rs"></span></div></div>');
@@ -707,7 +848,7 @@ function openExport(){
   $('#x-cancel').addEventListener('click',function(){S.cancel=true});
   $('#x-copy').addEventListener('click',function(){var ta=$('#x-json');try{navigator.clipboard.writeText(ta.value).then(function(){toast('Copied')},function(){ta.select();document.execCommand('copy');toast('Copied')})}catch(e){ta.select();try{document.execCommand('copy')}catch(_){}toast('Copied')}});
   $('#x-restore').addEventListener('click',function(){
-    try{var j=JSON.parse($('#x-in').value);if(!j||!Array.isArray(j.anns))throw 1;snap();P.anns=j.anns;P.inT=j.inT==null?null:j.inT;P.outT=j.outT==null?null:j.outT;S.sel=null;changed(true);$('#x-rs').textContent='Restored '+P.anns.length+' annotations.'}
+    try{var j=JSON.parse($('#x-in').value);if(!j||!Array.isArray(j.anns))throw 1;snap();P.anns=j.anns;P.inT=j.inT==null?null:j.inT;P.outT=j.outT==null?null:j.outT;P.freezes=j.freezes||[];S.sel=null;changed(true);$('#x-rs').textContent='Restored '+P.anns.length+' annotations.'}
     catch(e){$('#x-rs').textContent='That is not valid annotation data.';$('#x-rs').className='stat err'}
   });
 }
@@ -728,17 +869,33 @@ function renderVideoOut(){
   var done=function(){
     S.exporting=false;$('#x-go').disabled=false;$('#x-cancel').hidden=true;vid.pause();setTime(t0);
     if(S.cancel){stat.textContent='Cancelled.';return}
-    var type=(rec.mimeType||mime).split(';')[0],ext=type.indexOf('mp4')>-1?'mp4':'webm',blob=new Blob(chunks,{type:type}),url=URL.createObjectURL(blob),nm=(P.name||'clip').replace(/\.[^.]+$/,'')+'-annotated.'+ext;
+    var type=(rec.mimeType||mime).split(';')[0],ext=type.indexOf('mp4')>-1?'mp4':'webm',blob=new Blob(chunks,{type:type}),url=URL.createObjectURL(blob),nm=(V.name||'clip').replace(/\.[^.]+$/,'')+(Clips.length>1?'-'+slug(P.name):'')+'-annotated.'+ext;
     stat.textContent='Done. '+(blob.size/1048576).toFixed(1)+' MB '+ext.toUpperCase()+'.';$('#x-prog').style.width='100%';
     $('#x-res').innerHTML='<video controls playsinline src="'+url+'"></video><div class="actions" style="margin-top:8px"><button class="btn primary" id="x-save" type="button">Save '+ext.toUpperCase()+'</button></div><p class="stat">You will be asked to confirm the file name before it saves.</p>';
     $('#x-save').addEventListener('click',function(){saveFile(blob,nm)});
   };
   rec.onstop=done;
+  var freezeQ=(P.freezes||[]).filter(function(fz){return fz.t>t0&&fz.t<t1}).sort(function(a,b){return a.t-b.t}).map(function(fz){return {t:fz.t,dur:fz.dur,done:false}});
+  var holding=false,holdFz=null,holdStart=0;
   var seeked=function(){
     vid.removeEventListener('seeked',seeked);vid.playbackRate=1;rec.start(250);var p=vid.play();if(p&&p.catch)p.catch(function(){});
     var loop=function(){
       if(!S.exporting)return;
-      var t=vid.currentTime;ox.drawImage(vid,0,0,z.w,z.h);drawAnns(ox,z.w,z.h,t,false);
+      if(holding){
+        var elapsed=performance.now()-holdStart,t=holdFz.t;
+        ox.drawImage(vid,0,0,z.w,z.h);drawAnns(ox,z.w,z.h,t,false);
+        stat.textContent='Holding freeze… '+Math.max(0,(holdFz.dur-elapsed/1000)).toFixed(1)+'s left';
+        if(S.cancel){vid.pause();try{rec.stop()}catch(e){done()}return}
+        if(elapsed>=holdFz.dur*1000){holding=false;holdFz=null;var p2=vid.play();if(p2&&p2.catch)p2.catch(function(){})}
+        requestAnimationFrame(loop);return;
+      }
+      var t=vid.currentTime;
+      var hitFz=freezeQ.filter(function(fz){return !fz.done&&t>=fz.t-0.02})[0];
+      if(hitFz){
+        hitFz.done=true;vid.pause();holding=true;holdFz=hitFz;holdStart=performance.now();
+        requestAnimationFrame(loop);return;
+      }
+      ox.drawImage(vid,0,0,z.w,z.h);drawAnns(ox,z.w,z.h,t,false);
       var pr=clamp((t-t0)/Math.max(.01,t1-t0),0,1);$('#x-prog').style.width=(pr*100)+'%';stat.textContent='Rendering… '+Math.round(pr*100)+'%';
       if(S.cancel||t>=t1-.03||vid.ended){vid.pause();try{rec.stop()}catch(e){done()}return}
       requestAnimationFrame(loop);
@@ -759,10 +916,10 @@ function makeDemo(){
    A('ring',[{x:.59,y:.28},{x:.59,y:.36}],{color:'#ffd83a',start:5.2,end:7.6,w:3,fill:'dim'})
   ];
 }
-function renderAll(){renderHeader();renderToolbar();renderTransport();renderTimeline();renderInspector()}
-P.anns=makeDemo();S.sel=null;
+function renderAll(){renderHeader();renderClipTabs();renderToolbar();renderTransport();renderTimeline();renderInspector()}
+P.anns=makeDemo();P.freezes=[{id:uid(),t:4.6,dur:1.4}];S.sel=null;
 renderAll();sizeCanvas();setTime(3.4);rafT=requestAnimationFrame(tick);
-window.__studio={P:function(){return P},S:S,setTime:setTime,dur:dur};
+window.__studio={P:function(){return P},V:function(){return V},Clips:function(){return Clips},S:S,setTime:setTime,dur:dur};
 })();
 </script>
 
